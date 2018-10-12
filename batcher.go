@@ -11,6 +11,8 @@ type BatchConfig struct {
 	TargetInterval time.Duration
 	MaxSize        int
 	MinSize        int
+	Active         bool
+	NoWait         bool
 }
 
 type BatchMetrics struct {
@@ -19,14 +21,17 @@ type BatchMetrics struct {
 
 type BatchState struct {
 	LastSend time.Time
-	Active   bool
-	NoWait   bool
+}
+
+type Batch struct {
+	config BatchConfig
 }
 
 type Batcher struct {
 	config           *BatcherConfig
 	manifest         *sync.Map
 	scheduledBatches *sync.Map
+	batches          *sync.Map
 	redisClient      *redis.Client
 }
 
@@ -34,6 +39,7 @@ type BatcherConfig struct {
 	RedisOpts              *redis.Options
 	BatcherRedisPrefix     string
 	BatcherMetaRedisPrefix string
+	DefaultBatchConfig     *BatchConfig
 }
 
 func NewBatcher(config *BatcherConfig) *Batcher {
@@ -43,6 +49,15 @@ func NewBatcher(config *BatcherConfig) *Batcher {
 	if config.BatcherMetaRedisPrefix == "" {
 		config.BatcherMetaRedisPrefix = "meta."
 	}
+	if config.DefaultBatchConfig == nil {
+		config.DefaultBatchConfig = &BatchConfig{
+			TargetInterval: 10 * time.Minute,
+			MaxSize:        5,
+			MinSize:        1,
+			Active:         true,
+			NoWait:         false,
+		}
+	}
 	client := redis.NewClient(config.RedisOpts)
 	return &Batcher{
 		scheduledBatches: &sync.Map{},
@@ -51,41 +66,51 @@ func NewBatcher(config *BatcherConfig) *Batcher {
 	}
 }
 
+type batchSignal uint16
+
+const (
+	quit batchSignal = iota
+	changeConfig
+)
+
 func (b *Batcher) RefreshManifest() {
 	// clear out our manifest and refresh it from Redis
 }
 
 func (b *Batcher) ScheduleBatch(name string) {
-	quit := make(chan bool, 1)
-	b.scheduledBatches.Store(name, quit)
+	signals := make(chan batchSignal)
+	b.scheduledBatches.Store(name, signals)
+	batch, _ := b.batches.Load(name)
+	conf := batch.(Batch).config
 Outer:
 	for {
 		select {
-		case <-quit:
-			break Outer
+		case s, ok := <-signals:
+			if !ok {
+				break Outer
+			}
+			switch s {
+			case quit:
+				break Outer
+			case changeConfig:
+				batch, _ = b.batches.Load(name)
+				conf = batch.(Batch).config
+			}
 		default:
 			// throttle loop
 			time.Sleep(time.Minute)
 			// get batch config and state
 			// MOCK
-			config := BatchConfig{
-				TargetInterval: 10 * time.Minute,
-				MaxSize:        5,
-				MinSize:        1,
-			}
-			// MOCK
 			state := BatchState{
 				LastSend: time.Now(),
-				Active:   true,
-				NoWait:   false,
 			}
 			// . . .
-			if !state.Active {
+			if !conf.Active {
 				break Outer
 			}
 			// sleep until next time batch should be sent
 			last := state.LastSend
-			interval := config.TargetInterval
+			interval := conf.TargetInterval
 			now := time.Now()
 			time.Sleep(last.Add(interval).Sub(now))
 			SendBatch(name)
@@ -93,14 +118,14 @@ Outer:
 		runtime.Gosched()
 	}
 	b.scheduledBatches.Delete(name)
-	close(quit)
+	close(signals)
 }
 
 // UnscheduleBatch
 func (b *Batcher) UnscheduleBatch(name string) {
-	quit, ok := b.scheduledBatches.Load(name)
+	signals, ok := b.scheduledBatches.Load(name)
 	if ok {
-		quit.(chan bool) <- true
+		signals.(chan batchSignal) <- quit
 	}
 }
 
