@@ -32,6 +32,7 @@ type Batcher struct {
 	scheduledBatches *sync.Map
 	batches          *sync.Map
 	redisClient      *redis.Client
+	batchDest        string
 }
 
 type BatcherConfig struct {

@@ -37,7 +37,7 @@ Outer:
 			interval := conf.TargetInterval
 			now := time.Now()
 			time.Sleep(last.Add(interval).Sub(now))
-			SendBatch(name)
+			b.SendBatch(name)
 		}
 		runtime.Gosched()
 	}
