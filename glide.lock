@@ -1,0 +1,16 @@
+hash: 2ee1ae8d4770689d95246ab13f259df01cf2e338a1e6937d4d1cce7715811f2b
+updated: 2018-11-07T16:30:21.479516-05:00
+imports:
+- name: github.com/dkrieger/redistream
+  version: 0194c388971840cc39bce267d8a80109fcce0fe9
+- name: github.com/go-redis/redis
+  version: 58f22c56fdbdf07f5d6f5e397a6e134b94c65b0c
+  subpackages:
+  - internal
+  - internal/consistenthash
+  - internal/hashtag
+  - internal/pool
+  - internal/proto
+  - internal/singleflight
+  - internal/util
+testImports: []

@@ -1,0 +1,4 @@
+package: github.com/dkrieger/batcher
+import:
+- package: github.com/dkrieger/redistream
+- package: github.com/go-redis/redis
