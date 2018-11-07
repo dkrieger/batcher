@@ -2,7 +2,6 @@ package batcher
 
 import (
 	"github.com/go-redis/redis"
-	"runtime"
 	"sync"
 	"time"
 )
@@ -71,7 +70,3 @@ const (
 	quit batchSignal = iota
 	changeConfig
 )
-
-func (b *Batcher) RefreshManifest() {
-	// clear out our manifest and refresh it from Redis
-}
