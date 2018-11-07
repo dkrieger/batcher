@@ -1,5 +1,10 @@
 package batcher
 
+import (
+	"runtime"
+	"time"
+)
+
 // ScheduleBatch
 func (b *Batcher) ScheduleBatch(name string) {
 	signals := make(chan batchSignal)
@@ -50,6 +55,7 @@ func (b *Batcher) UnscheduleBatch(name string) {
 	signals, ok := b.scheduledBatches.Load(name)
 	if ok {
 		signals.(chan batchSignal) <- quit
+		close(signals.(chan batchSignal))
 	}
 }
 
