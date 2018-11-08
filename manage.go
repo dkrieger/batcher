@@ -19,7 +19,6 @@ package batcher
 
 import (
 	"github.com/go-redis/redis"
-	"time"
 )
 
 func (b *Batcher) RefreshManifest() {
@@ -62,11 +61,8 @@ func (b *Batcher) Reclaim(name string) error {
 	}
 	claim := []string{}
 	reap := []string{}
-	shouldReap := func(val redis.XPendingExt) bool {
-		return val.Idle > time.Hour*48 || val.RetryCount > 20
-	}
 	for _, v := range vals {
-		if shouldReap(v) {
+		if b.shouldReap(v) {
 			reap = append(reap, v.Id)
 		} else {
 			claim = append(claim, v.Id)

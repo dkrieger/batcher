@@ -57,6 +57,7 @@ type Batcher struct {
 	redisClient      *redis.Client
 	batchDest        string
 	reaper           string
+	shouldReap       func(redis.XPendingExt) bool
 }
 
 func (b *Batcher) Prefix() string {
@@ -117,11 +118,15 @@ func NewBatcher(config *BatcherConfig) *Batcher {
 	}
 	client := redis.NewClient(config.RedisOpts)
 	uuid := strconv.Itoa(int(crc32.ChecksumIEEE([]byte(strconv.Itoa(int(time.Now().UnixNano()))))))
+	shouldReap := func(val redis.XPendingExt) bool {
+		return val.Idle > time.Hour*48 || val.RetryCount > 20
+	}
 	b := &Batcher{
 		scheduledBatches: &sync.Map{},
 		redisClient:      client,
 		uuid:             uuid,
 		reaper:           "reaper",
+		shouldReap:       shouldReap,
 	}
 
 	// ensure no other batcher instance running
