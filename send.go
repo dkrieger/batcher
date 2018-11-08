@@ -35,7 +35,7 @@ func (b *Batcher) SendBatch(name string) error {
 	defer batch.consumerMutex.Unlock()
 	conf := redistream.Config{
 		MaxLenApprox: 1000,
-		Block:        5 * time.Second,
+		Block:        time.Second,
 		Count:        int64(batch.config.MaxSize),
 	}
 	streamClient := redistream.WrapClient(b.redisClient, conf)
