@@ -18,6 +18,7 @@
 package batcher
 
 import (
+	"github.com/dkrieger/redistream"
 	"github.com/go-redis/redis"
 )
 
@@ -35,14 +36,14 @@ func (b *Batcher) Reap(name string) error {
 		MaxLenApprox: 1000,
 	}
 	streamClient := redistream.WrapClient(b.redisClient, conf)
-	stream, err := streamClient.Consume(redistream.ConsumeArgs{
+	streamRaw, err := streamClient.Consume(redistream.ConsumeArgs{
 		Consumer: b.ReaperConsumer(),
 		Streams:  []string{name, "0"},
 	})
 	if err != nil {
 		return err
 	}
-	stream, err := stream.Merge(nil)
+	stream, err := streamRaw.Merge(nil)
 	aggregated, err := b.AggregateBatch(stream)
 	if err != nil {
 		return err
