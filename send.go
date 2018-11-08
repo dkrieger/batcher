@@ -67,7 +67,6 @@ func (b *Batcher) SendBatch(name string) error {
 	if err != nil {
 		return err
 	}
-
 	dest := []redistream.Entry{{
 		Meta: &redistream.EntryMeta{Stream: b.batchDest},
 		Hash: map[string]interface{}{"batch": aggregated},
