@@ -19,6 +19,7 @@ package batcher
 
 import (
 	"errors"
+	"github.com/dkrieger/redistream"
 	"github.com/go-redis/redis"
 	"hash/crc32"
 	"strconv"
@@ -49,12 +50,13 @@ type Batch struct {
 }
 
 type Batcher struct {
-	uuid             uint32
+	uuid             string
 	config           *BatcherConfig
 	scheduledBatches *sync.Map
 	batches          *sync.Map
 	redisClient      *redis.Client
 	batchDest        string
+	reaper           string
 }
 
 func (b *Batcher) Prefix() string {
@@ -88,7 +90,7 @@ func (b *Batcher) renewLock() error {
 		// redis error
 		return err
 	}
-	if val != strconv.Itoa(int(b.uuid)) {
+	if val != b.uuid {
 		// someone else has the lock
 		return errors.New("lock held by another batcher instance")
 	}
@@ -114,11 +116,12 @@ func NewBatcher(config *BatcherConfig) *Batcher {
 		}
 	}
 	client := redis.NewClient(config.RedisOpts)
-	uuid := crc32.ChecksumIEEE([]byte(strconv.Itoa(int(time.Now().UnixNano()))))
+	uuid := strconv.Itoa(int(crc32.ChecksumIEEE([]byte(strconv.Itoa(int(time.Now().UnixNano()))))))
 	b := &Batcher{
 		scheduledBatches: &sync.Map{},
 		redisClient:      client,
 		uuid:             uuid,
+		reaper:           "reaper",
 	}
 
 	// ensure no other batcher instance running

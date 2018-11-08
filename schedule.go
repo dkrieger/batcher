@@ -27,7 +27,7 @@ func (b *Batcher) ScheduleBatch(name string) {
 	signals := make(chan batchSignal)
 	b.scheduledBatches.Store(name, signals)
 	batchTmp, _ := b.batches.Load(name)
-	batch := batchTmp.(Batch)
+	batch := batchTmp.(*Batch)
 	conf := batch.config
 Outer:
 	for {
@@ -40,7 +40,8 @@ Outer:
 			case quit:
 				break Outer
 			case changeConfig:
-				batch, _ = b.batches.Load(name)
+				batchTmp, _ = b.batches.Load(name)
+				batch = batchTmp.(*Batch)
 				conf = batch.config
 			}
 		default:

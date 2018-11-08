@@ -27,7 +27,7 @@ import (
 // adding to Batcher.batchDest stream
 func (b *Batcher) SendBatch(name string) {
 	batchTmp, _ := b.batches.Load(name)
-	batch := batchTmp.(Batch)
+	batch := batchTmp.(*Batch)
 	// make sure this is the only goroutine consuming this stream
 	batch.consumerMutex.Lock()
 	defer batch.consumerMutex.Unlock()
