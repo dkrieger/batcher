@@ -127,24 +127,13 @@ func (b *Batcher) Reclaim(name string) error {
 		vals = append(vals, val...)
 	}
 	claim := []string{}
-	reap := []string{}
 	for _, v := range vals {
-		if b.shouldReap(v) {
-			reap = append(reap, v.Id)
-		} else {
-			claim = append(claim, v.Id)
-		}
+		claim = append(claim, v.Id)
 	}
 	err = cli.XClaim(&redis.XClaimArgs{
 		Stream:   name,
 		Group:    b.Consumer().Group,
 		Consumer: b.Consumer().Name,
-		Messages: claim,
-	}).Err()
-	err = cli.XClaim(&redis.XClaimArgs{
-		Stream:   name,
-		Group:    b.Consumer().Group,
-		Consumer: b.reaper,
 		Messages: claim,
 	}).Err()
 	if err != nil {
