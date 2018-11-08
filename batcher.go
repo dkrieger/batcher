@@ -18,7 +18,10 @@
 package batcher
 
 import (
+	"errors"
 	"github.com/go-redis/redis"
+	"hash/crc32"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -44,6 +47,7 @@ type Batch struct {
 }
 
 type Batcher struct {
+	uuid             uint32
 	config           *BatcherConfig
 	scheduledBatches *sync.Map
 	batches          *sync.Map
@@ -51,11 +55,44 @@ type Batcher struct {
 	batchDest        string
 }
 
+func (b *Batcher) Prefix() string {
+	return b.config.BatcherRedisPrefix
+}
+
+func (b *Batcher) MetaPrefix() string {
+	return b.Prefix() + b.config.BatcherMetaRedisPrefix
+}
+
 type BatcherConfig struct {
 	RedisOpts              *redis.Options
 	BatcherRedisPrefix     string
 	BatcherMetaRedisPrefix string
 	DefaultBatchConfig     *BatchConfig
+}
+
+func (b *Batcher) renewLock() error {
+	lock := b.MetaPrefix() + "lock"
+	_, err := b.redisClient.SetNX(lock, b.uuid, 10*time.Second).Result()
+	if err == nil {
+		// lock set
+		return nil
+	} else if err != redis.Nil {
+		// redis error
+		return err
+	}
+	// check who holds the lock
+	val, err := b.redisClient.Get(lock).Result()
+	if err != nil {
+		// redis error
+		return err
+	}
+	if val != strconv.Itoa(int(b.uuid)) {
+		// someone else has the lock
+		return errors.New("lock held by another batcher instance")
+	}
+	// we got the lock!
+	return nil
+
 }
 
 func NewBatcher(config *BatcherConfig) *Batcher {
@@ -75,10 +112,20 @@ func NewBatcher(config *BatcherConfig) *Batcher {
 		}
 	}
 	client := redis.NewClient(config.RedisOpts)
-	return &Batcher{
+	uuid := crc32.ChecksumIEEE([]byte(strconv.Itoa(int(time.Now().UnixNano()))))
+	b := &Batcher{
 		scheduledBatches: &sync.Map{},
 		redisClient:      client,
+		uuid:             uuid,
 	}
+
+	// ensure no other batcher instance running
+	err := b.renewLock()
+	if err != nil {
+		panic(err)
+	}
+
+	return b
 }
 
 type batchSignal uint16
