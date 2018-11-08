@@ -64,6 +64,7 @@ func (b *Batcher) SendBatch(name string) {
 	stream := append(oldStream, newStream...)
 	_, _, err = b.AggregateBatch(stream, streamClient)
 }
+
 func (b *Batcher) AggregateBatch(entries []redistream.Entry, streamClient *redistream.Client) ([]redistream.XAckResult, []string, error) {
 	agg := []map[string]interface{}{}
 	for _, e := range entries {
