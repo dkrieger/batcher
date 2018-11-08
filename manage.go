@@ -51,6 +51,9 @@ func (b *Batcher) ReapSome(entries []redistream.Entry, name string) ([]redistrea
 				Consumer: b.reaper,
 				Messages: []string{val[0].Id},
 			}).Err()
+			if err != nil {
+				return entries, err
+			}
 		} else {
 			out = append(out, e)
 		}
