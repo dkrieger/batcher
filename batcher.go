@@ -43,7 +43,9 @@ type BatchState struct {
 }
 
 type Batch struct {
-	config BatchConfig
+	name          string
+	consumerMutex sync.Mutex
+	config        BatchConfig
 }
 
 type Batcher struct {

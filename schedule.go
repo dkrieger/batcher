@@ -26,8 +26,9 @@ import (
 func (b *Batcher) ScheduleBatch(name string) {
 	signals := make(chan batchSignal)
 	b.scheduledBatches.Store(name, signals)
-	batch, _ := b.batches.Load(name)
-	conf := batch.(Batch).config
+	batchTmp, _ := b.batches.Load(name)
+	batch := batchTmp.(Batch)
+	conf := batch.config
 Outer:
 	for {
 		select {
@@ -40,7 +41,7 @@ Outer:
 				break Outer
 			case changeConfig:
 				batch, _ = b.batches.Load(name)
-				conf = batch.(Batch).config
+				conf = batch.config
 			}
 		default:
 			// throttle loop

@@ -23,11 +23,14 @@ import (
 	"time"
 )
 
+// SendBatch aggregates up to BatchConfig.MaxSize entries into one entry,
+// adding to Batcher.batchDest stream
 func (b *Batcher) SendBatch(name string) {
-	// read MaxSize items from batch stream, move to ready stream (which an
-	// external consumer watches)
 	batchTmp, _ := b.batches.Load(name)
 	batch := batchTmp.(Batch)
+	// make sure this is the only goroutine consuming this stream
+	batch.consumerMutex.Lock()
+	defer batch.consumerMutex.Unlock()
 	conf := redistream.Config{
 		MaxLenApprox: 1000,
 		Block:        5 * time.Second,
