@@ -22,10 +22,6 @@ import (
 	"github.com/go-redis/redis"
 )
 
-func (b *Batcher) RefreshManifest() {
-	// clear out our manifest and refresh it from Redis
-}
-
 func (b *Batcher) ReapSome(entries []redistream.Entry, name string) ([]redistream.Entry, error) {
 	out := []redistream.Entry{}
 	for _, e := range entries {
