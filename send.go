@@ -20,6 +20,8 @@ package batcher
 import (
 	"encoding/json"
 	"github.com/dkrieger/redistream"
+	"log"
+	"os"
 	"time"
 )
 
@@ -48,6 +50,12 @@ func (b *Batcher) SendBatch(name string) error {
 	if err != nil {
 		return err
 	}
+	stderr := log.New(os.Stderr, "", 0)
+	oldStream, err = b.ReapSome(oldStream, name)
+	if err != nil {
+		stderr.Printf("ReapSome() error: \nentries: %#v\nname: %s\n%s\n",
+			oldStream, name, err)
+	}
 	override := conf
 	override.Count = int64(batch.config.MaxSize - len(oldStream))
 	new, err := streamClient.Consume(redistream.ConsumeArgs{
@@ -61,6 +69,11 @@ func (b *Batcher) SendBatch(name string) error {
 	newStream, err := new.Merge(nil)
 	if err != nil {
 		return err
+	}
+	newStream, err = b.ReapSome(newStream, name)
+	if err != nil {
+		stderr.Printf("ReapSome() error: \nentries: %#v\nname: %s\n%s\n",
+			newStream, name, err)
 	}
 	stream := append(oldStream, newStream...)
 	aggregated, err := b.AggregateBatch(stream)

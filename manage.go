@@ -26,7 +26,43 @@ func (b *Batcher) RefreshManifest() {
 	// clear out our manifest and refresh it from Redis
 }
 
-func (b *Batcher) Reap(name string) error {
+func (b *Batcher) ReapSome(entries []redistream.Entry, name string) ([]redistream.Entry, error) {
+	out := []redistream.Entry{}
+	for _, e := range entries {
+		val, err := b.redisClient.XPendingExt(&redis.XPendingExtArgs{
+			Stream:   name,
+			Group:    b.Consumer().Group,
+			Start:    e.ID,
+			End:      e.ID,
+			Count:    1,
+			Consumer: b.Consumer().Name,
+		}).Result()
+		if err != nil {
+			return entries, err
+		}
+		if len(val) != 1 {
+			out = append(out, e)
+			continue
+		}
+		if b.shouldReap(val[0]) {
+			err = b.redisClient.XClaim(&redis.XClaimArgs{
+				Stream:   name,
+				Group:    b.Consumer().Group,
+				Consumer: b.reaper,
+				Messages: []string{val[0].Id},
+			}).Err()
+		} else {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+// ReapBatch aggregates and stores entries that failed to be batched. the resulting
+// stream functions as a log of failed entries. Entries get reaped based on
+// being idle for too long, or being retried too many times. In normal
+// operation, entries shouldn't be reaped very often if at all.
+func (b *Batcher) ReapBatch(name string) error {
 	batchTmp, _ := b.batches.Load(name)
 	batch := batchTmp.(*Batch)
 	// make sure this is the only goroutine consuming this stream
@@ -112,5 +148,8 @@ func (b *Batcher) Reclaim(name string) error {
 		Consumer: b.reaper,
 		Messages: claim,
 	}).Err()
+	if err != nil {
+		return err
+	}
 	return nil
 }
