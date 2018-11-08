@@ -25,7 +25,7 @@ import (
 
 // SendBatch aggregates up to BatchConfig.MaxSize entries into one entry,
 // adding to Batcher.batchDest stream
-func (b *Batcher) SendBatch(name string) {
+func (b *Batcher) SendBatch(name string) error {
 	batchTmp, _ := b.batches.Load(name)
 	batch := batchTmp.(*Batch)
 	// make sure this is the only goroutine consuming this stream
@@ -42,11 +42,11 @@ func (b *Batcher) SendBatch(name string) {
 		Streams:  []string{name, "0"},
 	})
 	if err != nil {
-		panic(err)
+		return err
 	}
 	oldStream, err := old.Merge(nil)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	override := conf
 	override.Count = int64(batch.config.MaxSize - len(oldStream))
@@ -56,29 +56,35 @@ func (b *Batcher) SendBatch(name string) {
 		Override: &override,
 	})
 	if err != nil {
-		panic(err)
+		return err
 	}
 	newStream, err := new.Merge(nil)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	stream := append(oldStream, newStream...)
-	_, _, err = b.AggregateBatch(stream, streamClient)
+	aggregated, err := b.AggregateBatch(stream)
+	if err != nil {
+		return err
+	}
+
+	dest := []redistream.Entry{{
+		Meta: &redistream.EntryMeta{Stream: b.batchDest},
+		Hash: map[string]interface{}{"batch": aggregated},
+	}}
+	_, _, err = streamClient.Process(redistream.ProcessArgs{
+		From: stream, To: dest})
+	return err
 }
 
-func (b *Batcher) AggregateBatch(entries []redistream.Entry, streamClient *redistream.Client) ([]redistream.XAckResult, []string, error) {
+func (b *Batcher) AggregateBatch(entries []redistream.Entry) (string, error) {
 	agg := []map[string]interface{}{}
 	for _, e := range entries {
 		agg = append(agg, e.Hash)
 	}
 	json, err := json.Marshal(agg)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
-	out := []redistream.Entry{{
-		Meta: &redistream.EntryMeta{Stream: b.batchDest},
-		Hash: map[string]interface{}{"batch": string(json)}}}
-	xackResults, ids, err := streamClient.Process(redistream.ProcessArgs{
-		From: entries, To: out})
-	return xackResults, ids, err
+	return string(json), nil
 }

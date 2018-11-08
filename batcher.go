@@ -145,6 +145,13 @@ func (b *Batcher) Consumer() redistream.Consumer {
 	}
 }
 
+func (b *Batcher) ReaperConsumer() redistream.Consumer {
+	return redistream.Consumer{
+		Group: "batcher",
+		Name:  b.reaper,
+	}
+}
+
 type batchSignal uint16
 
 const (

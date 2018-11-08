@@ -25,6 +25,37 @@ func (b *Batcher) RefreshManifest() {
 	// clear out our manifest and refresh it from Redis
 }
 
+func (b *Batcher) Reap(name string) error {
+	batchTmp, _ := b.batches.Load(name)
+	batch := batchTmp.(*Batch)
+	// make sure this is the only goroutine consuming this stream
+	batch.consumerMutex.Lock()
+	defer batch.consumerMutex.Unlock()
+	conf := redistream.Config{
+		MaxLenApprox: 1000,
+	}
+	streamClient := redistream.WrapClient(b.redisClient, conf)
+	stream, err := streamClient.Consume(redistream.ConsumeArgs{
+		Consumer: b.ReaperConsumer(),
+		Streams:  []string{name, "0"},
+	})
+	if err != nil {
+		return err
+	}
+	stream, err := stream.Merge(nil)
+	aggregated, err := b.AggregateBatch(stream)
+	if err != nil {
+		return err
+	}
+	dest := []redistream.Entry{{
+		Meta: &redistream.EntryMeta{Stream: b.MetaPrefix() + "reaped"},
+		Hash: map[string]interface{}{"batch": aggregated, "from": name},
+	}}
+	_, _, err = streamClient.Process(redistream.ProcessArgs{
+		From: stream, To: dest})
+	return err
+}
+
 // Reclaim `XCLAIM`s entries from old consumers on behalf of the current consumer
 // Don't delete the consumer, or we'll get repeats.
 func (b *Batcher) Reclaim(name string) error {
