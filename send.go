@@ -37,10 +37,8 @@ func (b *Batcher) SendBatch(name string) {
 		Count:        int64(batch.config.MaxSize),
 	}
 	streamClient := redistream.WrapClient(b.redisClient, conf)
-	consumer := redistream.DefaultConsumer()
-	consumer.Name = b.uuid
 	old, err := streamClient.Consume(redistream.ConsumeArgs{
-		Consumer: consumer,
+		Consumer: b.Consumer(),
 		Streams:  []string{name, "0"},
 	})
 	if err != nil {
@@ -53,7 +51,7 @@ func (b *Batcher) SendBatch(name string) {
 	override := conf
 	override.Count = int64(batch.config.MaxSize - len(oldStream))
 	new, err := streamClient.Consume(redistream.ConsumeArgs{
-		Consumer: consumer,
+		Consumer: b.Consumer(),
 		Streams:  []string{name, ">"},
 		Override: &override,
 	})

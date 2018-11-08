@@ -130,6 +130,13 @@ func NewBatcher(config *BatcherConfig) *Batcher {
 	return b
 }
 
+func (b *Batcher) Consumer() redistream.Consumer {
+	return redistream.Consumer{
+		Group: "batcher",
+		Name:  b.uuid,
+	}
+}
+
 type batchSignal uint16
 
 const (
