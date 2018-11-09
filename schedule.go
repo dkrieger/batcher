@@ -57,9 +57,9 @@ Outer:
 			if metrics.LastSend.After(lastSend) {
 				lastSend = metrics.LastSend
 			}
-			if !conf.Active {
-				break Outer
-			}
+			// if !conf.Active {
+			// 	break Outer
+			// }
 			// sleep until next time batch should be sent
 			interval := conf.TargetInterval
 			now := time.Now()
