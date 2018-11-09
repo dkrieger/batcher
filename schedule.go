@@ -67,6 +67,10 @@ Outer:
 			err := b.SendBatch(name)
 			if err == nil {
 				lastSend = time.Now()
+				_, err := b.redisClient.HSet(b.MetricsPrefix()+"lastSend", name, lastSend).Result()
+				if err != nil {
+					stderr.Printf("ScheduleBatch() error:\ndetails: HSET lastSend\n%#v\n", err)
+				}
 			} else {
 				stderr.Printf("SendBatch() error: \ntime: %#v\n", time.Now())
 			}
