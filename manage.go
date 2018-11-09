@@ -28,6 +28,24 @@ import (
 func (b *Batcher) checkBatches() (*map[string]*Batch, error) {
 	cli := b.redisClient
 
+	// Batch (streams)
+	cursor := -1
+	batches := map[string]*Batch{}
+	for cursor != 0 {
+		if cursor == -1 {
+			cursor = 0
+		}
+		page, curs, err := cli.Scan(uint64(cursor), b.streamPrefix()+"*", 0).Result()
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range page {
+			batches[name] = &Batch{
+				config: *b.config.DefaultBatchConfig}
+		}
+		cursor = int(curs)
+	}
+
 	// BatchConfig
 	batchConfigs := map[string]BatchConfig{}
 	val, err := cli.HGetAll(b.Prefix() + "batches.config").Result()
@@ -72,14 +90,31 @@ func (b *Batcher) checkBatches() (*map[string]*Batch, error) {
 		batchMetrics[name] = bmn
 	}
 
-	// Batch
-	batches := map[string]*Batch{}
-	for name, config := range batchConfigs {
-		batches[name] = &Batch{
-			name:    name,
-			config:  config,
-			metrics: batchMetrics[name],
+	// Fill in Configs and Metrics
+	confExists := func(key string, configs map[string]BatchConfig) bool {
+		for k, _ := range configs {
+			if k == key {
+				return true
+			}
 		}
+		return false
+	}
+	metricsExists := func(key string, metricsMap map[string]BatchMetrics) bool {
+		for k, _ := range metricsMap {
+			if k == key {
+				return true
+			}
+		}
+		return false
+	}
+	for name, batch := range batches {
+		if confExists(name, batchConfigs) {
+			batch.config = batchConfigs[name]
+		}
+		if metricsExists(name, batchMetrics) {
+			batch.metrics = batchMetrics[name]
+		}
+		batches[name] = batch
 	}
 	return &batches, nil
 }

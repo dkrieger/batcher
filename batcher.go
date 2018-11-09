@@ -19,6 +19,7 @@ package batcher
 
 import (
 	"errors"
+	"fmt"
 	"github.com/dkrieger/redistream"
 	"github.com/go-redis/redis"
 	"hash/crc32"
@@ -53,7 +54,6 @@ type Batcher struct {
 	config      *BatcherConfig
 	batches     map[string]*Batch
 	redisClient *redis.Client
-	batchDest   string
 	reaper      string
 	shouldReap  func(redis.XPendingExt) bool
 }
@@ -66,21 +66,28 @@ func (b *Batcher) getBatches() map[string]*Batch {
 	return ret
 }
 
-// Prefix is used for "public" parts of the Batcher redis keyspace
+// Prefix is used for the entirety of the Batcher redis keyspace
 func (b *Batcher) Prefix() string {
-	return b.config.BatcherRedisPrefix
+	return fmt.Sprintf("{%s}.", b.config.BatcherShardKey)
 }
 
 // MetaPrefix is used for "private" parts of the Batcher redis keyspace
 func (b *Batcher) MetaPrefix() string {
-	return b.Prefix() + b.config.BatcherMetaRedisPrefix
+	return b.Prefix() + "meta."
+}
+
+func (b *Batcher) streamPrefix() string {
+	return b.Prefix() + "stream:"
+}
+
+func (b *Batcher) batchDest() string {
+	return b.Prefix() + "output"
 }
 
 type BatcherConfig struct {
-	RedisOpts              *redis.Options
-	BatcherRedisPrefix     string
-	BatcherMetaRedisPrefix string
-	DefaultBatchConfig     *BatchConfig
+	RedisOpts          *redis.Options
+	BatcherShardKey    string
+	DefaultBatchConfig *BatchConfig
 }
 
 func (b *Batcher) renewLock() error {
@@ -109,11 +116,8 @@ func (b *Batcher) renewLock() error {
 }
 
 func NewBatcher(config *BatcherConfig) *Batcher {
-	if config.BatcherRedisPrefix == "" {
-		config.BatcherRedisPrefix = "{batcher}."
-	}
-	if config.BatcherMetaRedisPrefix == "" {
-		config.BatcherMetaRedisPrefix = "meta."
+	if config.BatcherShardKey == "" {
+		config.BatcherShardKey = "{batcher}."
 	}
 	if config.DefaultBatchConfig == nil {
 		config.DefaultBatchConfig = &BatchConfig{

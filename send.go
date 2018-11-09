@@ -26,7 +26,7 @@ import (
 )
 
 // SendBatch aggregates up to BatchConfig.MaxSize entries into one entry,
-// adding to Batcher.batchDest stream
+// adding to Batcher.batchDest() stream
 func (b *Batcher) SendBatch(name string) error {
 	batches := b.getBatches()
 	batch := batches[name]
@@ -81,7 +81,7 @@ func (b *Batcher) SendBatch(name string) error {
 		return err
 	}
 	dest := []redistream.Entry{{
-		Meta: &redistream.EntryMeta{Stream: b.batchDest},
+		Meta: &redistream.EntryMeta{Stream: b.batchDest()},
 		Hash: map[string]interface{}{"batch": aggregated},
 	}}
 	_, _, err = streamClient.Process(redistream.ProcessArgs{
