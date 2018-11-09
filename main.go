@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	. "github.com/dkrieger/batcher/lib"
 	"github.com/go-redis/redis"
 	"gopkg.in/urfave/cli.v1"
 	"gopkg.in/urfave/cli.v1/altsrc"
+	"os"
 )
 
 func main() {
@@ -36,6 +38,10 @@ func main() {
 
 	app.Before = altsrc.InitInputSourceWithContext(app.Flags, altsrc.NewYamlSourceFromFlagFunc("config"))
 	app.Action = initBatcher
+	err := app.Run(os.Args)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func initBatcher(c *cli.Context) error {
