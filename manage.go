@@ -84,12 +84,16 @@ func (b *Batcher) checkBatches() (*map[string]*Batch, error) {
 	return &batches, nil
 }
 
-// syncBatches synchronizes the local batch config/metrics with redis
-// config/metrics. The direction of this sync is conditional for each batch.
-// For instance, if the local BatchMetrics.LastSend is later than the redis
-// representation, redis should be overwritten.
-
-// syncBatches makes local batch config/metrics match redis batch config/metrics.
+// syncBatches makes local batch config/metrics match redis batch
+// config/metrics.
+// TODO: This can't reasonably be run frequently enough for
+// BatchMetrics.LastSend to be always accurate, so it makes sense to track it
+// locally, and when syncBatches runs, preserve the local value if it is
+// greater than the redis value.  in this way, we can remain (pseudo) lockless
+// while having up-to-date LastSend info available in the respective
+// ScheduleBatch goroutines
+// TODO: run this on startup, listen on pubsub channel for configuration change
+// (or just poll)
 func (b *Batcher) syncBatches() error {
 	tmp, err := b.checkBatches()
 	if err != nil {
