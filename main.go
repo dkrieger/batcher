@@ -28,7 +28,9 @@ func main() {
 			Usage: "set address of redis instance backing Batcher",
 		}),
 		altsrc.NewStringFlag(cli.StringFlag{
-			Name: "batcher.shardKey, k",
+			Name:  "batcher.shardKey, k",
+			Value: "batcher",
+			Usage: "set the redis shard key",
 		}),
 	}
 
