@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	. "github.com/dkrieger/batcher/lib"
 	"github.com/go-redis/redis"
 	"gopkg.in/urfave/cli.v1"
