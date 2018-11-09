@@ -35,7 +35,7 @@ func (b *Batcher) checkBatches() (*map[string]*Batch, error) {
 		if cursor == -1 {
 			cursor = 0
 		}
-		page, curs, err := cli.Scan(uint64(cursor), b.streamPrefix()+"*", 0).Result()
+		page, curs, err := cli.Scan(uint64(cursor), b.StreamPrefix()+"*", 0).Result()
 		if err != nil {
 			return nil, err
 		}
@@ -48,7 +48,7 @@ func (b *Batcher) checkBatches() (*map[string]*Batch, error) {
 
 	// BatchConfig
 	batchConfigs := map[string]BatchConfig{}
-	val, err := cli.HGetAll(b.Prefix() + "batches.config").Result()
+	val, err := cli.HGetAll(b.ConfigsKey()).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (b *Batcher) checkBatches() (*map[string]*Batch, error) {
 
 	// BatchMetrics
 	batchMetrics := map[string]BatchMetrics{}
-	val, err = cli.HGetAll(b.Prefix() + "batches.metrics.lastSend").Result()
+	val, err = cli.HGetAll(b.MetricsPrefix() + "lastSend").Result()
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (b *Batcher) checkBatches() (*map[string]*Batch, error) {
 			LastSend: time.Unix(i, 0),
 		}
 	}
-	val, err = cli.HGetAll(b.Prefix() + "batches.metrics.entriesPerHour").Result()
+	val, err = cli.HGetAll(b.MetricsPrefix() + "entriesPerHour").Result()
 	if err != nil {
 		return nil, err
 	}

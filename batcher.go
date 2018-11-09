@@ -76,11 +76,19 @@ func (b *Batcher) MetaPrefix() string {
 	return b.Prefix() + "meta."
 }
 
-func (b *Batcher) streamPrefix() string {
+func (b *Batcher) StreamPrefix() string {
 	return b.Prefix() + "stream:"
 }
 
-func (b *Batcher) batchDest() string {
+func (b *Batcher) MetricsPrefix() string {
+	return b.MetaPrefix() + "batches.metrics:"
+}
+
+func (b *Batcher) ConfigsKey() string {
+	return b.Prefix() + "batches.config"
+}
+
+func (b *Batcher) BatchDest() string {
 	return b.Prefix() + "output"
 }
 

@@ -81,7 +81,7 @@ func (b *Batcher) SendBatch(name string) error {
 		return err
 	}
 	dest := []redistream.Entry{{
-		Meta: &redistream.EntryMeta{Stream: b.batchDest()},
+		Meta: &redistream.EntryMeta{Stream: b.BatchDest()},
 		Hash: map[string]interface{}{"batch": aggregated},
 	}}
 	_, _, err = streamClient.Process(redistream.ProcessArgs{
