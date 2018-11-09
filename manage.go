@@ -49,7 +49,7 @@ func (b *Batcher) checkBatches() (*map[string]*Batch, error) {
 	// BatchConfig
 	batchConfigs := map[string]BatchConfig{}
 	val, err := cli.HGetAll(b.ConfigsKey()).Result()
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		return nil, err
 	}
 	for name, config := range val {
@@ -64,7 +64,7 @@ func (b *Batcher) checkBatches() (*map[string]*Batch, error) {
 	// BatchMetrics
 	batchMetrics := map[string]BatchMetrics{}
 	val, err = cli.HGetAll(b.MetricsPrefix() + "lastSend").Result()
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		return nil, err
 	}
 	for name, lastSend := range val {
@@ -77,7 +77,7 @@ func (b *Batcher) checkBatches() (*map[string]*Batch, error) {
 		}
 	}
 	val, err = cli.HGetAll(b.MetricsPrefix() + "entriesPerHour").Result()
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		return nil, err
 	}
 	for name, eph := range val {
