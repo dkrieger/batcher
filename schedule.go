@@ -18,6 +18,8 @@
 package batcher
 
 import (
+	"log"
+	"os"
 	"runtime"
 	"time"
 )
@@ -25,6 +27,8 @@ import (
 // ScheduleBatch
 func (b *Batcher) ScheduleBatch(name string, signals <-chan batchSignal) {
 	paused := false
+	lastSend := time.Time{}
+	stderr := log.New(os.Stderr, "", 0)
 Outer:
 	for {
 		select {
@@ -49,21 +53,23 @@ Outer:
 			batches := b.getBatches()
 			batch := batches[name]
 			conf := batch.config
-			// get batch config and state
-			// MOCK
-			state := BatchMetrics{
-				LastSend: time.Now(),
+			metrics := batch.metrics
+			if metrics.LastSend.After(lastSend) {
+				lastSend = metrics.LastSend
 			}
-			// . . .
 			if !conf.Active {
 				break Outer
 			}
 			// sleep until next time batch should be sent
-			last := state.LastSend
 			interval := conf.TargetInterval
 			now := time.Now()
-			time.Sleep(last.Add(interval).Sub(now))
-			b.SendBatch(name)
+			time.Sleep(lastSend.Add(interval).Sub(now))
+			err := b.SendBatch(name)
+			if err == nil {
+				lastSend = time.Now()
+			} else {
+				stderr.Printf("SendBatch() error: \ntime: %#v\n", time.Now())
+			}
 		}
 		runtime.Gosched()
 	}

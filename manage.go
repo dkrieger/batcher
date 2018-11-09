@@ -19,6 +19,7 @@ package batcher
 
 import (
 	"encoding/json"
+	"github.com/go-redis/redis"
 	"strconv"
 	"sync"
 	"time"
