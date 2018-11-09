@@ -37,33 +37,52 @@ type BatchConfig struct {
 
 type BatchMetrics struct {
 	EntriesPerHour float64
-}
-
-type BatchState struct {
-	LastSend time.Time
+	LastSend       time.Time
 }
 
 type Batch struct {
 	name          string
-	consumerMutex sync.Mutex
+	consumerMutex *sync.Mutex
+	signals       chan batchSignal
 	config        BatchConfig
+	metrics       BatchMetrics
 }
 
 type Batcher struct {
-	uuid             string
-	config           *BatcherConfig
-	scheduledBatches *sync.Map
-	batches          *sync.Map
-	redisClient      *redis.Client
-	batchDest        string
-	reaper           string
-	shouldReap       func(redis.XPendingExt) bool
+	uuid              string
+	config            *BatcherConfig
+	scheduledBatches  *sync.Map
+	_scheduledBatches map[string](chan batchSignal)
+	batches           *sync.Map
+	_batches          map[string]*Batch
+	redisClient       *redis.Client
+	batchDest         string
+	reaper            string
+	shouldReap        func(redis.XPendingExt) bool
 }
 
+func (b *Batcher) getBatches() map[string]*Batch {
+	ret := map[string]*Batch{}
+	for k, v := range b._batches {
+		ret[k] = v
+	}
+	return ret
+}
+
+func (b *Batcher) getScheduled() map[string](chan batchSignal) {
+	ret := map[string](chan batchSignal){}
+	for k, v := range b._scheduledBatches {
+		ret[k] = v
+	}
+	return ret
+}
+
+// Prefix is used for "public" parts of the Batcher redis keyspace
 func (b *Batcher) Prefix() string {
 	return b.config.BatcherRedisPrefix
 }
 
+// MetaPrefix is used for "private" parts of the Batcher redis keyspace
 func (b *Batcher) MetaPrefix() string {
 	return b.Prefix() + b.config.BatcherMetaRedisPrefix
 }
@@ -156,5 +175,6 @@ type batchSignal uint16
 
 const (
 	quit batchSignal = iota
-	changeConfig
+	pause
+	resume
 )

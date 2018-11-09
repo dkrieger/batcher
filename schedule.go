@@ -23,12 +23,8 @@ import (
 )
 
 // ScheduleBatch
-func (b *Batcher) ScheduleBatch(name string) {
-	signals := make(chan batchSignal)
-	b.scheduledBatches.Store(name, signals)
-	batchTmp, _ := b.batches.Load(name)
-	batch := batchTmp.(*Batch)
-	conf := batch.config
+func (b *Batcher) ScheduleBatch(name string, signals <-chan batchSignal) {
+	paused := false
 Outer:
 	for {
 		select {
@@ -39,17 +35,23 @@ Outer:
 			switch s {
 			case quit:
 				break Outer
-			case changeConfig:
-				batchTmp, _ = b.batches.Load(name)
-				batch = batchTmp.(*Batch)
-				conf = batch.config
+			case pause:
+				paused = true
+			case resume:
+				paused = false
 			}
 		default:
 			// throttle loop
-			time.Sleep(time.Minute)
+			time.Sleep(time.Second)
+			if paused {
+				continue
+			}
+			batches := b.getBatches()
+			batch := batches[name]
+			conf := batch.config
 			// get batch config and state
 			// MOCK
-			state := BatchState{
+			state := BatchMetrics{
 				LastSend: time.Now(),
 			}
 			// . . .
@@ -65,23 +67,28 @@ Outer:
 		}
 		runtime.Gosched()
 	}
-	b.scheduledBatches.Delete(name)
-	close(signals)
 }
 
 // UnscheduleBatch
 func (b *Batcher) UnscheduleBatch(name string) {
-	signals, ok := b.scheduledBatches.Load(name)
-	if ok {
-		signals.(chan batchSignal) <- quit
-		close(signals.(chan batchSignal))
+	scheduled := b.getScheduled()
+	keyExists := func(key string, batches map[string](chan batchSignal)) bool {
+		for k, _ := range batches {
+			if k == key {
+				return true
+			}
+		}
+		return false
+	}
+	if keyExists(name, scheduled) {
+		scheduled[name] <- quit
 	}
 }
 
 // UnscheduleAllBatches
 func (b *Batcher) UnscheduleAllBatches() {
-	b.scheduledBatches.Range(func(key, value interface{}) bool {
-		b.UnscheduleBatch(key.(string))
-		return true
-	})
+	scheduled := b.getScheduled()
+	for k, _ := range scheduled {
+		b.UnscheduleBatch(k)
+	}
 }
