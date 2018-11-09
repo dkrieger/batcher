@@ -28,8 +28,8 @@ import (
 // SendBatch aggregates up to BatchConfig.MaxSize entries into one entry,
 // adding to Batcher.batchDest stream
 func (b *Batcher) SendBatch(name string) error {
-	batchTmp, _ := b.batches.Load(name)
-	batch := batchTmp.(*Batch)
+	batches := b.getBatches()
+	batch := batches[name]
 	// make sure this is the only goroutine consuming this stream
 	batch.consumerMutex.Lock()
 	defer batch.consumerMutex.Unlock()

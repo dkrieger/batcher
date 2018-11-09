@@ -62,8 +62,8 @@ func (b *Batcher) ReapSome(entries []redistream.Entry, name string) ([]redistrea
 // being idle for too long, or being retried too many times. In normal
 // operation, entries shouldn't be reaped very often if at all.
 func (b *Batcher) ReapBatch(name string) error {
-	batchTmp, _ := b.batches.Load(name)
-	batch := batchTmp.(*Batch)
+	batches := b.getBatches()
+	batch := batches[name]
 	// make sure this is the only goroutine consuming this stream
 	batch.consumerMutex.Lock()
 	defer batch.consumerMutex.Unlock()

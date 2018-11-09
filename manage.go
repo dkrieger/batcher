@@ -134,7 +134,7 @@ func (b *Batcher) syncBatches() error {
 	for k, v := range localBatches {
 		// transfer/init mutexes
 		if sliceHas(k, extra) {
-			go func() { v.signals <- quit }()
+			go func() { v.signals <- quit; close(v.signals) }()
 			continue
 		}
 		lmut := v.consumerMutex
@@ -151,9 +151,9 @@ func (b *Batcher) syncBatches() error {
 	}
 
 	// overwrite Batcher.batches map and schedule batches
-	b._batches = batches
+	b.batches = batches
 	for _, k := range missing {
-		go b.ScheduleBatch(k, b._batches[k].signals)
+		go b.ScheduleBatch(k, b.batches[k].signals)
 	}
 
 	return nil

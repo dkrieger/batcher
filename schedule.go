@@ -68,27 +68,3 @@ Outer:
 		runtime.Gosched()
 	}
 }
-
-// UnscheduleBatch
-func (b *Batcher) UnscheduleBatch(name string) {
-	scheduled := b.getScheduled()
-	keyExists := func(key string, batches map[string](chan batchSignal)) bool {
-		for k, _ := range batches {
-			if k == key {
-				return true
-			}
-		}
-		return false
-	}
-	if keyExists(name, scheduled) {
-		scheduled[name] <- quit
-	}
-}
-
-// UnscheduleAllBatches
-func (b *Batcher) UnscheduleAllBatches() {
-	scheduled := b.getScheduled()
-	for k, _ := range scheduled {
-		b.UnscheduleBatch(k)
-	}
-}

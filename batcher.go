@@ -49,29 +49,18 @@ type Batch struct {
 }
 
 type Batcher struct {
-	uuid              string
-	config            *BatcherConfig
-	scheduledBatches  *sync.Map
-	_scheduledBatches map[string](chan batchSignal)
-	batches           *sync.Map
-	_batches          map[string]*Batch
-	redisClient       *redis.Client
-	batchDest         string
-	reaper            string
-	shouldReap        func(redis.XPendingExt) bool
+	uuid        string
+	config      *BatcherConfig
+	batches     map[string]*Batch
+	redisClient *redis.Client
+	batchDest   string
+	reaper      string
+	shouldReap  func(redis.XPendingExt) bool
 }
 
 func (b *Batcher) getBatches() map[string]*Batch {
 	ret := map[string]*Batch{}
-	for k, v := range b._batches {
-		ret[k] = v
-	}
-	return ret
-}
-
-func (b *Batcher) getScheduled() map[string](chan batchSignal) {
-	ret := map[string](chan batchSignal){}
-	for k, v := range b._scheduledBatches {
+	for k, v := range b.batches {
 		ret[k] = v
 	}
 	return ret
@@ -141,11 +130,10 @@ func NewBatcher(config *BatcherConfig) *Batcher {
 		return val.Idle > time.Hour*48 || val.RetryCount > 20
 	}
 	b := &Batcher{
-		scheduledBatches: &sync.Map{},
-		redisClient:      client,
-		uuid:             uuid,
-		reaper:           "reaper",
-		shouldReap:       shouldReap,
+		redisClient: client,
+		uuid:        uuid,
+		reaper:      "reaper",
+		shouldReap:  shouldReap,
 	}
 
 	// ensure no other batcher instance running
