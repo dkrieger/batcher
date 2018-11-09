@@ -123,9 +123,9 @@ func (b *Batcher) renewLock() error {
 
 }
 
-func NewBatcher(config *BatcherConfig) *Batcher {
+func NewBatcher(config *BatcherConfig) (*Batcher, error) {
 	if config.BatcherShardKey == "" {
-		config.BatcherShardKey = "{batcher}."
+		config.BatcherShardKey = "batcher"
 	}
 	if config.DefaultBatchConfig == nil {
 		config.DefaultBatchConfig = &BatchConfig{
@@ -151,10 +151,22 @@ func NewBatcher(config *BatcherConfig) *Batcher {
 	// ensure no other batcher instance running
 	err := b.renewLock()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-
-	return b
+	err = b.syncBatches()
+	if err != nil {
+		return nil, err
+	}
+	// sync batches every 30 seconds
+	go func() {
+		err := error(nil)
+		for err == nil {
+			time.Sleep(30 * time.Second)
+			err = b.syncBatches()
+		}
+		panic(err)
+	}()
+	return b, nil
 }
 
 func (b *Batcher) Consumer() redistream.Consumer {
