@@ -61,6 +61,15 @@ func (b *Batcher) ReapSome(entries []redistream.Entry, name string) ([]redistrea
 // stream functions as a log of failed entries. Entries get reaped based on
 // being idle for too long, or being retried too many times. In normal
 // operation, entries shouldn't be reaped very often if at all.
+//
+// NOTE: this name is somewhat ambiguous, as it might be interpreted as reaping
+// failed batches. However, processing the batches should be left entirely to
+// the client, or handled by a companion redis stream worker -- maybe even a
+// differently configured batcher instance. In short, processing the
+// destination batch is outside the scope of Batcher.
+// e.g. maybe the client should check how many times it's tried the batch (or
+// how long it sat idle) and, using MULTI EXEC, XADD to a failed batch log
+// stream and XDEL the batch
 func (b *Batcher) ReapBatch(name string) error {
 	batches := b.getBatches()
 	batch := batches[name]
