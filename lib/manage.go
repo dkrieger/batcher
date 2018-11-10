@@ -41,8 +41,11 @@ func (b *Batcher) checkBatches() (*map[string]*Batch, error) {
 			return nil, err
 		}
 		for _, name := range page {
-			batches[name] = &Batch{
-				config: *b.config.DefaultBatchConfig}
+			batch := new(Batch)
+			batch.config = *b.config.DefaultBatchConfig
+			offset := len(b.StreamPrefix())
+			batch.name = name[offset:]
+			batches[batch.name] = batch
 		}
 		cursor = int(curs)
 	}
@@ -164,9 +167,9 @@ func (b *Batcher) syncBatches() error {
 
 	// identify new batches
 	missing := []string{}
-	for _, batch := range batches {
-		if !keyExists(batch.name, localBatches) {
-			missing = append(missing, batch.name)
+	for name, _ := range batches {
+		if !keyExists(name, localBatches) {
+			missing = append(missing, name)
 		}
 	}
 
@@ -186,7 +189,8 @@ func (b *Batcher) syncBatches() error {
 	}
 	for _, k := range missing {
 		r := batches[k]
-		r.consumerMutex = &sync.Mutex{}
+		mut := new(sync.Mutex)
+		r.consumerMutex = mut
 		r.signals = make(chan batchSignal)
 	}
 

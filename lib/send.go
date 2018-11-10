@@ -20,6 +20,7 @@ package batcher
 import (
 	"encoding/json"
 	"github.com/dkrieger/redistream"
+	"github.com/go-redis/redis"
 	"log"
 	"os"
 	"time"
@@ -39,11 +40,12 @@ func (b *Batcher) SendBatch(name string) error {
 		Count:        int64(batch.config.MaxSize),
 	}
 	streamClient := redistream.WrapClient(b.redisClient, conf)
+	fullName := b.StreamPrefix() + name
 	old, err := streamClient.Consume(redistream.ConsumeArgs{
 		Consumer: b.Consumer(),
-		Streams:  []string{name, "0"},
+		Streams:  []string{fullName, "0"},
 	})
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		return err
 	}
 	oldStream, err := old.Merge(nil)
@@ -51,38 +53,44 @@ func (b *Batcher) SendBatch(name string) error {
 		return err
 	}
 	stderr := log.New(os.Stderr, "", 0)
-	oldStream, err = b.ReapSome(oldStream, name)
+	oldStream, err = b.ReapSome(oldStream, fullName)
 	if err != nil {
 		stderr.Printf("ReapSome() error: \nentries: %#v\nname: %s\n%s\n",
-			oldStream, name, err)
+			oldStream, fullName, err)
 	}
 	override := conf
 	override.Count = int64(batch.config.MaxSize - len(oldStream))
 	new, err := streamClient.Consume(redistream.ConsumeArgs{
 		Consumer: b.Consumer(),
-		Streams:  []string{name, ">"},
+		Streams:  []string{fullName, ">"},
 		Override: &override,
 	})
-	if err != nil {
+	if err != nil && err != redis.Nil {
 		return err
 	}
 	newStream, err := new.Merge(nil)
 	if err != nil {
 		return err
 	}
-	newStream, err = b.ReapSome(newStream, name)
+	newStream, err = b.ReapSome(newStream, fullName)
 	if err != nil {
 		stderr.Printf("ReapSome() error: \nentries: %#v\nname: %s\n%s\n",
-			newStream, name, err)
+			newStream, fullName, err)
 	}
 	stream := append(oldStream, newStream...)
+	if len(stream) == 0 {
+		return nil
+	}
 	aggregated, err := b.AggregateBatch(stream)
 	if err != nil {
 		return err
 	}
 	dest := []redistream.Entry{{
 		Meta: &redistream.EntryMeta{Stream: b.BatchDest()},
-		Hash: map[string]interface{}{"batch": aggregated},
+		Hash: map[string]interface{}{
+			"batch":  aggregated,
+			"outlet": name,
+		},
 	}}
 	_, _, err = streamClient.Process(redistream.ProcessArgs{
 		From: stream, To: dest})

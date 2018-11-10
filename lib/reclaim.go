@@ -19,6 +19,7 @@ package batcher
 
 import (
 	"github.com/go-redis/redis"
+	"time"
 )
 
 // Reclaim `XCLAIM`s entries from old consumers on behalf of the current consumer
@@ -30,7 +31,7 @@ func (b *Batcher) Reclaim(name string) error {
 	}
 	cli := b.redisClient
 	// get list of consumers
-	val, err := cli.XPending(name, b.Consumer().Group).Result()
+	val, err := cli.XPending(b.StreamPrefix()+name, b.Consumer().Group).Result()
 	if err != nil {
 		return err
 	}
@@ -43,7 +44,7 @@ func (b *Batcher) Reclaim(name string) error {
 	vals := []redis.XPendingExt{}
 	for c, count := range oldConsumers {
 		val, err := cli.XPendingExt(&redis.XPendingExtArgs{
-			Stream:   name,
+			Stream:   b.StreamPrefix() + name,
 			Group:    b.Consumer().Group,
 			Start:    "-",
 			End:      "+",
@@ -59,10 +60,14 @@ func (b *Batcher) Reclaim(name string) error {
 	for _, v := range vals {
 		claim = append(claim, v.Id)
 	}
+	if len(claim) == 0 {
+		return nil
+	}
 	err = cli.XClaim(&redis.XClaimArgs{
-		Stream:   name,
+		Stream:   b.StreamPrefix() + name,
 		Group:    b.Consumer().Group,
 		Consumer: b.Consumer().Name,
+		MinIdle:  time.Second,
 		Messages: claim,
 	}).Err()
 	if err != nil {

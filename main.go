@@ -6,6 +6,7 @@ import (
 	"gopkg.in/urfave/cli.v1"
 	"gopkg.in/urfave/cli.v1/altsrc"
 	"os"
+	"runtime"
 )
 
 func main() {
@@ -35,11 +36,22 @@ func main() {
 		}),
 	}
 
-	app.Before = altsrc.InitInputSourceWithContext(app.Flags, altsrc.NewYamlSourceFromFlagFunc("config"))
+	app.Before = func(c *cli.Context) error {
+		if _, err := os.Stat(c.String("config")); os.IsNotExist(err) {
+			return nil
+		}
+		_, err := altsrc.NewYamlSourceFromFlagFunc("config")(c)
+		return err
+	}
+	// app.Before = altsrc.InitInputSourceWithContext(app.Flags, altsrc.NewYamlSourceFromFlagFunc("config"))
 	app.Action = initBatcher
 	err := app.Run(os.Args)
 	if err != nil {
 		panic(err)
+	}
+	// infinite loop
+	for {
+		runtime.Gosched()
 	}
 }
 

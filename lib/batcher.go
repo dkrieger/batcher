@@ -146,6 +146,7 @@ func NewBatcher(config *BatcherConfig) (*Batcher, error) {
 		uuid:        uuid,
 		reaper:      "reaper",
 		shouldReap:  shouldReap,
+		config:      config,
 	}
 
 	// ensure no other batcher instance running
