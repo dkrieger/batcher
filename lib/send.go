@@ -72,7 +72,7 @@ func (b *Batcher) SendBatch(name string) error {
 		Meta: &redistream.EntryMeta{Stream: b.BatchDest()},
 		Hash: map[string]interface{}{
 			"batch":  aggregated,
-			"outlet": name,
+			"source": name,
 		},
 	}}
 	_, _, err = streamClient.Process(redistream.ProcessArgs{
