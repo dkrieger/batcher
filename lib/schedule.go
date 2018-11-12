@@ -11,10 +11,10 @@ import (
 // ScheduleBatch
 func (b *Batcher) ScheduleBatch(name string, signals <-chan batchSignal) {
 	stderr := log.New(os.Stderr, "", 0)
-	err := b.Reclaim(name)
-	if err != nil {
-		stderr.Printf("Reclaimer error:\n%#v\n", err)
-	}
+	// err := b.Reclaim(name)
+	// if err != nil {
+	// 	stderr.Printf("Reclaimer error:\n%#v\n", err)
+	// }
 	paused := false
 	lastSend := time.Time{}
 	defaultFunc := func() {
