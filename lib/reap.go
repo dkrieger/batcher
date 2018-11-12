@@ -5,11 +5,11 @@ import (
 	"github.com/go-redis/redis"
 )
 
-func (b *Batcher) ReapSome(entries []redistream.Entry, name string) ([]redistream.Entry, error) {
+func (b *Batcher) ReapSome(entries []redistream.Entry, streamName string) ([]redistream.Entry, error) {
 	out := []redistream.Entry{}
 	for _, e := range entries {
 		val, err := b.redisClient.XPendingExt(&redis.XPendingExtArgs{
-			Stream:   name,
+			Stream:   streamName,
 			Group:    b.Consumer().Group,
 			Start:    e.ID,
 			End:      e.ID,
@@ -25,7 +25,7 @@ func (b *Batcher) ReapSome(entries []redistream.Entry, name string) ([]redistrea
 		}
 		if b.shouldReap(val[0]) {
 			err = b.redisClient.XClaim(&redis.XClaimArgs{
-				Stream:   name,
+				Stream:   streamName,
 				Group:    b.Consumer().Group,
 				Consumer: b.reaper,
 				Messages: []string{val[0].Id},

@@ -7,6 +7,9 @@ import (
 	"gopkg.in/urfave/cli.v1/altsrc"
 	"os"
 	"runtime"
+	"strconv"
+	"strings"
+	"time"
 )
 
 func main() {
@@ -55,6 +58,16 @@ func main() {
 				" its lock before releasing back to the lock" +
 				" pool.",
 		}),
+		altsrc.NewUintFlag(cli.UintFlag{
+			Name:  "batcher.reaper.maxAge",
+			Value: 3600,
+			Usage: "reap entries older than `N` seconds",
+		}),
+		altsrc.NewUintFlag(cli.UintFlag{
+			Name:  "batcher.reaper.maxRetries",
+			Value: 20,
+			Usage: "reap entries having more than `N` retries",
+		}),
 	}
 
 	app.Before = func(c *cli.Context) error {
@@ -90,6 +103,18 @@ func initBatcher(c *cli.Context) error {
 		Concurrency:     c.Uint("batcher.concurrency"),
 		MinDelaySeconds: c.Uint("batcher.minDelaySeconds"),
 		MaxDelaySeconds: c.Uint("batcher.maxDelaySeconds"),
+		Reaper: ReaperConfig{
+			MaxAgeSeconds: MaxAge(c.Uint("batcher.reaper.maxAge")),
+			MaxRetries:    MaxRetries(c.Uint("batcher.reaper.maxRetries")),
+			ShouldReap: func(val redis.XPendingExt, maxAgeSeconds MaxAge, maxRetries MaxRetries) bool {
+				converted, _ := strconv.Atoi(strings.Split(val.Id, "-")[0])
+				idTime := time.Unix(int64(converted), 0)
+				tooOld := time.Since(idTime).Seconds() > float64(maxAgeSeconds)
+				idleTooLong := val.Idle > time.Hour*48
+				tooManyRetries := val.RetryCount > int64(maxRetries)
+				return tooOld || idleTooLong || tooManyRetries
+			},
+		},
 	})
 	if err != nil {
 		return err

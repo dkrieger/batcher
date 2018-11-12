@@ -39,7 +39,6 @@ type Batcher struct {
 	batches     map[string]*Batch
 	redisClient *redis.Client
 	reaper      string
-	shouldReap  func(redis.XPendingExt) bool
 	lockPool    *LockPool
 }
 
@@ -77,6 +76,15 @@ func (b *Batcher) BatchDest() string {
 	return b.Prefix() + "output"
 }
 
+type MaxAge uint
+type MaxRetries uint
+
+type ReaperConfig struct {
+	MaxAgeSeconds MaxAge
+	MaxRetries    MaxRetries
+	ShouldReap    func(redis.XPendingExt, MaxAge, MaxRetries) bool
+}
+
 type BatcherConfig struct {
 	RedisOpts          *redis.Options
 	BatcherShardKey    string
@@ -84,6 +92,7 @@ type BatcherConfig struct {
 	Concurrency        uint
 	MinDelaySeconds    uint
 	MaxDelaySeconds    uint
+	Reaper             ReaperConfig
 }
 
 type empty struct{}
@@ -138,6 +147,12 @@ func (b *Batcher) renewLock() error {
 
 }
 
+func (b *Batcher) shouldReap(val redis.XPendingExt) bool {
+	maxAge := b.config.Reaper.MaxAgeSeconds
+	maxRetries := b.config.Reaper.MaxRetries
+	return b.config.Reaper.ShouldReap(val, maxAge, maxRetries)
+}
+
 func NewBatcher(config *BatcherConfig) (*Batcher, error) {
 	if config.BatcherShardKey == "" {
 		config.BatcherShardKey = "batcher"
@@ -157,14 +172,10 @@ func NewBatcher(config *BatcherConfig) (*Batcher, error) {
 	lockPool := NewLockPool(config.Concurrency)
 	client := redis.NewClient(config.RedisOpts)
 	uuid := strconv.Itoa(int(crc32.ChecksumIEEE([]byte(strconv.Itoa(int(time.Now().UnixNano()))))))
-	shouldReap := func(val redis.XPendingExt) bool {
-		return val.Idle > time.Hour*48 || val.RetryCount > 20
-	}
 	b := &Batcher{
 		redisClient: client,
 		uuid:        uuid,
 		reaper:      "reaper",
-		shouldReap:  shouldReap,
 		config:      config,
 		lockPool:    lockPool,
 	}
