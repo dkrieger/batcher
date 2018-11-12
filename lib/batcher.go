@@ -6,6 +6,7 @@ import (
 	"github.com/dkrieger/redistream"
 	"github.com/go-redis/redis"
 	"hash/crc32"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -39,6 +40,7 @@ type Batcher struct {
 	redisClient *redis.Client
 	reaper      string
 	shouldReap  func(redis.XPendingExt) bool
+	lockPool    *LockPool
 }
 
 func (b *Batcher) getBatches() map[string]*Batch {
@@ -79,6 +81,36 @@ type BatcherConfig struct {
 	RedisOpts          *redis.Options
 	BatcherShardKey    string
 	DefaultBatchConfig *BatchConfig
+	Concurrency        uint
+	MinDelaySeconds    uint
+	MaxDelaySeconds    uint
+}
+
+type empty struct{}
+type semaphore chan empty
+type LockPool struct {
+	locks semaphore
+}
+
+func NewLockPool(num uint) *LockPool {
+	sem := make(semaphore, int(num))
+	return &LockPool{locks: sem}
+}
+func (l *LockPool) Lock() {
+	l.locks <- empty{}
+}
+func (l *LockPool) Unlock() {
+	<-l.locks
+}
+
+func (b *Batcher) BatcherDelay() time.Duration {
+	min := b.config.MinDelaySeconds
+	max := b.config.MaxDelaySeconds
+	if max < min {
+		max = min
+	}
+	width := max - min
+	return time.Second * time.Duration(rand.Intn(int(width+1))+int(min))
 }
 
 func (b *Batcher) renewLock() error {
@@ -110,6 +142,9 @@ func NewBatcher(config *BatcherConfig) (*Batcher, error) {
 	if config.BatcherShardKey == "" {
 		config.BatcherShardKey = "batcher"
 	}
+	if config.Concurrency == 0 {
+		config.Concurrency = 1
+	}
 	if config.DefaultBatchConfig == nil {
 		config.DefaultBatchConfig = &BatchConfig{
 			TargetInterval: 10 * time.Minute,
@@ -119,6 +154,7 @@ func NewBatcher(config *BatcherConfig) (*Batcher, error) {
 			NoWait:         false,
 		}
 	}
+	lockPool := NewLockPool(config.Concurrency)
 	client := redis.NewClient(config.RedisOpts)
 	uuid := strconv.Itoa(int(crc32.ChecksumIEEE([]byte(strconv.Itoa(int(time.Now().UnixNano()))))))
 	shouldReap := func(val redis.XPendingExt) bool {
@@ -130,6 +166,7 @@ func NewBatcher(config *BatcherConfig) (*Batcher, error) {
 		reaper:      "reaper",
 		shouldReap:  shouldReap,
 		config:      config,
+		lockPool:    lockPool,
 	}
 
 	// ensure no other batcher instance running

@@ -38,6 +38,13 @@ Outer:
 			if paused {
 				continue
 			}
+			// limit concurrency
+			b.lockPool.Lock()
+			defer func() {
+				time.Sleep(b.BatcherDelay())
+				b.lockPool.Unlock()
+			}()
+
 			batches := b.getBatches()
 			batch := batches[name]
 			conf := batch.config

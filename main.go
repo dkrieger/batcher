@@ -34,6 +34,27 @@ func main() {
 			Value: "batcher",
 			Usage: "set the redis shard key",
 		}),
+		altsrc.NewUintFlag(cli.UintFlag{
+			Name:  "batcher.concurrency",
+			Value: 1,
+			Usage: "define how many batching goroutines can run" +
+				" at once. this sets the size of the lock" +
+				" pool.",
+		}),
+		altsrc.NewUintFlag(cli.UintFlag{
+			Name:  "batcher.minDelaySeconds",
+			Value: 0,
+			Usage: "min time a batching goroutine should retain" +
+				" its lock before releasing back to the lock" +
+				" pool.",
+		}),
+		altsrc.NewUintFlag(cli.UintFlag{
+			Name:  "batcher.maxDelaySeconds",
+			Value: 0,
+			Usage: "max time a batching goroutine should retain" +
+				" its lock before releasing back to the lock" +
+				" pool.",
+		}),
 	}
 
 	app.Before = func(c *cli.Context) error {
@@ -66,6 +87,9 @@ func initBatcher(c *cli.Context) error {
 			Addr:    c.String("redis.address"),
 		},
 		BatcherShardKey: c.String("batcher.shardKey"),
+		Concurrency:     c.Uint("batcher.concurrency"),
+		MinDelaySeconds: c.Uint("batcher.minDelaySeconds"),
+		MaxDelaySeconds: c.Uint("batcher.maxDelaySeconds"),
 	})
 	if err != nil {
 		return err
