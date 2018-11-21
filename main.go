@@ -6,7 +6,6 @@ import (
 	"gopkg.in/urfave/cli.v1"
 	"gopkg.in/urfave/cli.v1/altsrc"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -83,10 +82,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// infinite loop
-	for {
-		runtime.Gosched()
-	}
+	// run forever
+	neverUnblocks := make(chan struct{})
+	<-neverUnblocks
 }
 
 func initBatcher(c *cli.Context) error {
