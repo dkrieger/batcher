@@ -58,6 +58,21 @@ func main() {
 				" pool.",
 		}),
 		altsrc.NewUintFlag(cli.UintFlag{
+			Name:  "batcher.batch.defaultConfig.targetInterval",
+			Value: 10,
+			Usage: "batch a given source at most once every `N` seconds",
+		}),
+		altsrc.NewUintFlag(cli.UintFlag{
+			Name:  "batcher.batch.defaultConfig.maxSize",
+			Value: 5,
+			Usage: "limit batch to `N` entries",
+		}),
+		altsrc.NewUintFlag(cli.UintFlag{
+			Name:  "batcher.batch.defaultConfig.minSize",
+			Value: 1,
+			Usage: "require at least `N` entries per batch",
+		}),
+		altsrc.NewUintFlag(cli.UintFlag{
 			Name:  "batcher.reaper.maxAge",
 			Value: 3600,
 			Usage: "reap entries older than `N` seconds",
@@ -101,6 +116,13 @@ func initBatcher(c *cli.Context) error {
 		Concurrency:     c.Uint("batcher.concurrency"),
 		MinDelaySeconds: c.Uint("batcher.minDelaySeconds"),
 		MaxDelaySeconds: c.Uint("batcher.maxDelaySeconds"),
+		DefaultBatchConfig: &BatchConfig{
+			TargetInterval: time.Duration(c.Uint("batcher.batch.defaultConfig.targetInterval")) * time.Second,
+			MaxSize:        int(c.Uint("batcher.batch.defaultConfig.maxSize")),
+			MinSize:        int(c.Uint("batcher.batch.defaultConfig.minSize")),
+			Active:         true,
+			NoWait:         false,
+		},
 		Reaper: ReaperConfig{
 			MaxAgeSeconds: MaxAge(c.Uint("batcher.reaper.maxAge")),
 			MaxRetries:    MaxRetries(c.Uint("batcher.reaper.maxRetries")),
